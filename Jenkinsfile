@@ -1,27 +1,55 @@
-node {
-	def application = "addressbook"
-	def dockerhubaccountid = "jenkinsdemo123"
-	stage('Clone repository') {
-		checkout scm
-	}
+pipeline {
+    agent any  // Runs on any available agent
 
-	stage('Build image') {
-		app = docker.build("${dockerhubaccountid}/${application}:${BUILD_NUMBER}")
-	}
+    environment {
+        application = "addressbook"
+        dockerhubaccountid = "jenkinsdemo123"
+    }
 
-	stage('Push image') {
-		withDockerRegistry([ credentialsId: "dockerHub", url: "" ]) {
-		app.push()
-		app.push("latest")
-	}
-	}
+    stages {
+        stage('Clone repository') {
+            steps {
+                checkout scm  // Checkout source code from version control
+            }
+        }
 
-	stage('Deploy') {
-		sh ("docker run -d -p 81:8080 -v /var/log/:/var/log/ ${dockerhubaccountid}/${application}:${BUILD_NUMBER}")
-	}
-	
-	stage('Remove old images') {
-		// remove docker pld images
-		sh("docker rmi ${dockerhubaccountid}/${application}:latest -f")
-   }
+        stage('Build image') {
+            steps {
+                script {
+                    // Build Docker image
+                    def app = docker.build("${dockerhubaccountid}/${application}:${BUILD_NUMBER}")
+                }
+            }
+        }
+
+        stage('Push image') {
+            steps {
+                script {
+                    // Push Docker image to DockerHub
+                    withDockerRegistry([credentialsId: "dockerHub", url: ""]) {
+                        app.push()
+                        app.push("latest")
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    // Deploy Docker container
+                    sh "docker run -d -p 81:8080 -v /var/log/:/var/log/ ${dockerhubaccountid}/${application}:${BUILD_NUMBER}"
+                }
+            }
+        }
+
+        stage('Remove old images') {
+            steps {
+                script {
+                    // Remove old Docker images
+                    sh "docker rmi ${dockerhubaccountid}/${application}:latest -f"
+                }
+            }
+        }
+    }
 }

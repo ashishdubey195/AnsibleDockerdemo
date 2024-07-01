@@ -2,22 +2,25 @@ pipeline {
     agent any  // Runs on any available agent
 
     environment {
-        application = "addressbook"
         dockerhubaccountid = "jenkinsdemo123"
+        application = "addressbook"
+        BUILD_NUMBER = env.BUILD_NUMBER ?: "latest"  // Default to "latest" if BUILD_NUMBER is not available
     }
 
     stages {
         stage('Clone repository') {
             steps {
-                checkout scm  // Checkout source code from version control
+                // Checkout your source code repository (assuming SCM is configured)
+                checkout scm
             }
         }
 
         stage('Build image') {
             steps {
                 script {
-                    // Build Docker image
-                    def app = docker.build("${dockerhubaccountid}/${application}:${BUILD_NUMBER}")
+                    // Build Docker image using 'docker build' command
+                    def dockerImageTag = "${dockerhubaccountid}/${application}:${BUILD_NUMBER}"
+                    sh "docker build -t ${dockerImageTag} ."
                 }
             }
         }
@@ -25,11 +28,9 @@ pipeline {
         stage('Push image') {
             steps {
                 script {
-                    // Push Docker image to DockerHub
-                    withDockerRegistry([credentialsId: "dockerHub", url: ""]) {
-                        app.push()
-                        app.push("latest")
-                    }
+                    // Push Docker image to Docker Hub or registry
+                    def dockerImageTag = "${dockerhubaccountid}/${application}:${BUILD_NUMBER}"
+                    sh "docker push ${dockerImageTag}"
                 }
             }
         }
@@ -37,8 +38,9 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    // Deploy Docker container
-                    sh "docker run -d -p 81:8080 -v /var/log/:/var/log/ ${dockerhubaccountid}/${application}:${BUILD_NUMBER}"
+                    // Example deployment command, adjust as per your deployment needs
+                    def dockerImageTag = "${dockerhubaccountid}/${application}:${BUILD_NUMBER}"
+                    sh "docker run -d -p 81:8080 -v /var/log/:/var/log/ ${dockerImageTag}"
                 }
             }
         }
@@ -46,8 +48,8 @@ pipeline {
         stage('Remove old images') {
             steps {
                 script {
-                    // Remove old Docker images
-                    sh "docker rmi ${dockerhubaccountid}/${application}:latest -f"
+                    // Remove old Docker images as needed
+                    sh "docker rmi ${dockerhubaccountid}/${application}:${BUILD_NUMBER} -f"
                 }
             }
         }
